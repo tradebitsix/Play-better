@@ -107,8 +107,10 @@ r.get('/:id/matches', async (req, res) => {
     const { id, matchId } = req.params
     const tableNumber = Number(req.body?.tableNumber)
     if(!Number.isFinite(tableNumber) || tableNumber <= 0) return res.status(400).json({ error:'tableNumber must be > 0' })
-    await pool.query('UPDATE matches SET table_number=$1 WHERE id=$2 AND tournament_id=$3', [tableNumber, matchId, id])
-    res.json({ ok:true })
+await pool.query(
+  'UPDATE matches SET winner_player_id=$1 WHERE id=$2 AND tournament_id=$3',
+  [winnerPlayerId, matchId, id]
+)    res.json({ ok:true })
   })
 
   r.post('/:id/matches/:matchId/result', async (req,res) => {
@@ -120,7 +122,9 @@ r.get('/:id/matches', async (req, res) => {
     if(m.rows.length===0) return res.status(404).json({ error:'match not found' })
     const row = m.rows[0]
     if(!row.player_a || !row.player_b) return res.status(400).json({ error:'match not ready (missing players)' })
-    if(winnerPlayerId !== row.player_a && winnerPlayerId !== row.player_b) return res.status(400).json({ error:'winner not in match' })
+ if (winnerPlayerId !== row.player_a && winnerPlayerId !== row.player_b)
+  return res.status(400).json({ error: 'winner not in match' })
+   if(winnerPlayerId !== row.player_a && winnerPlayerId !== row.player_b) return res.status(400).json({ error:'winner not in match' })
 
     await pool.query('UPDATE matches SET winner_player_id=$1 WHERE id=$2', [winnerPlayerId, matchId])
 
@@ -136,6 +140,79 @@ r.get('/:id/matches', async (req, res) => {
 
     res.json({ ok:true })
   })
+// Canonical list (flat)
+r.get('/:id/matches', async (req, res) => {
+  try {
+    const { id } = req.params
+    const q = await pool.query(
+      `SELECT id, tournament_id, round, slot, player_a, player_b, winner_player_id, table_number
+       FROM matches
+       WHERE tournament_id = $1
+       ORDER BY round, slot`,
+      [id]
+    )
+    res.json(q.rows)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'internal error' })
+  }
+})
 
+// Bracket-ready summary (frontend friendly)
+r.get('/:id/summary', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const t = await pool.query(
+      `SELECT id, mode, venue_name AS "venueName", created_at
+       FROM tournaments WHERE id=$1`,
+      [id]
+    )
+    if (t.rows.length === 0) return res.status(404).json({ error: 'not found' })
+
+    const players = await pool.query(`
+      SELECT tp.slot, p.id, p.name
+      FROM tournament_players tp
+      JOIN players p ON p.id=tp.player_id
+      WHERE tp.tournament_id=$1
+      ORDER BY tp.slot ASC
+    `, [id])
+
+    const matches = await pool.query(`
+      SELECT id, round, slot, player_a, player_b, winner_player_id, table_number
+      FROM matches
+      WHERE tournament_id=$1
+      ORDER BY round ASC, slot ASC
+    `, [id])
+
+    const playerMap = new Map(players.rows.map(r => [r.id, { id: r.id, name: r.name }]))
+
+    const rounds = { 1: [], 2: [], 3: [] }
+    for (const m of matches.rows) {
+      rounds[m.round].push({
+        id: m.id,
+        round: m.round,
+        slot: m.slot,
+        playerA: m.player_a ? playerMap.get(m.player_a) : null,
+        playerB: m.player_b ? playerMap.get(m.player_b) : null,
+        winnerPlayerId: m.winner_player_id || null,
+        tableNumber: m.table_number ?? null
+      })
+    }
+
+    res.json({
+      ...t.rows[0],
+      players: players.rows.map(r => ({ slot: r.slot, id: r.id, name: r.name })),
+      rounds: {
+        r1: rounds[1],
+        r2: rounds[2],
+        r3: rounds[3]
+      }
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'internal error' })
+  }
+})
   return r
 }
