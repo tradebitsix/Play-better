@@ -7,7 +7,24 @@ function nextSlot(round, slot){
 
 export function tournamentsRouter(pool){
   const r = Router()
+r.get('/:id/matches', async (req, res) => {
+  try {
+    const { id } = req.params
 
+    const q = await pool.query(
+      `SELECT id, tournament_id, round, slot, player_a, player_b, winner_player_id
+       FROM matches
+       WHERE tournament_id = $1
+       ORDER BY round, slot`,
+      [id]
+    )
+
+    res.json(q.rows)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'internal error' })
+  }
+})
   async function createTournament(mode, playerIds, venueName){
     if(!Array.isArray(playerIds) || playerIds.length < 8) throw new Error('Need 8 playerIds')
     const id = uuid()
