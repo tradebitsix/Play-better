@@ -1,14 +1,12 @@
+import express from 'express'
 import { v4 as uuid } from 'uuid'
 
 function nextSlot(round, slot) {
-  return {
-    round: round + 1,
-    slot: Math.floor(slot / 2)
-  }
+  return { round: round + 1, slot: Math.floor(slot / 2) }
 }
 
 export function tournamentsRouter(pool) {
-  const r = require('express').Router()
+  const r = express.Router()
 
   /* =======================================================
      GET TOURNAMENT VIEW
@@ -25,8 +23,7 @@ export function tournamentsRouter(pool) {
         [id]
       )
 
-      if (!t.rows.length)
-        return res.status(404).json({ error: 'not found' })
+      if (!t.rows.length) return res.status(404).json({ error: 'not found' })
 
       const players = await pool.query(
         `SELECT tp.slot, p.id, p.name
@@ -49,9 +46,7 @@ export function tournamentsRouter(pool) {
         [id]
       )
 
-      const playerMap = new Map(
-        players.rows.map(p => [p.id, { id: p.id, name: p.name }])
-      )
+      const playerMap = new Map(players.rows.map(p => [p.id, { id: p.id, name: p.name }]))
 
       const outMatches = matches.rows.map(m => ({
         id: m.id,
@@ -65,11 +60,7 @@ export function tournamentsRouter(pool) {
 
       res.json({
         ...t.rows[0],
-        players: players.rows.map(r => ({
-          slot: r.slot,
-          id: r.id,
-          name: r.name
-        })),
+        players: players.rows.map(r => ({ slot: r.slot, id: r.id, name: r.name })),
         matches: outMatches
       })
     } catch (e) {
@@ -113,8 +104,7 @@ export function tournamentsRouter(pool) {
       const { id, matchId } = req.params
       const winnerPlayerId = req.body?.winnerPlayerId
 
-      if (!winnerPlayerId)
-        return res.status(400).json({ error: 'winnerPlayerId required' })
+      if (!winnerPlayerId) return res.status(400).json({ error: 'winnerPlayerId required' })
 
       const m = await pool.query(
         `SELECT id, round, slot, player_a, player_b
@@ -123,18 +113,14 @@ export function tournamentsRouter(pool) {
         [matchId, id]
       )
 
-      if (!m.rows.length)
-        return res.status(404).json({ error: 'match not found' })
+      if (!m.rows.length) return res.status(404).json({ error: 'match not found' })
 
       const row = m.rows[0]
 
       if (!row.player_a || !row.player_b)
         return res.status(400).json({ error: 'match not ready' })
 
-      if (
-        winnerPlayerId !== row.player_a &&
-        winnerPlayerId !== row.player_b
-      )
+      if (winnerPlayerId !== row.player_a && winnerPlayerId !== row.player_b)
         return res.status(400).json({ error: 'winner not in match' })
 
       await pool.query(
@@ -158,17 +144,10 @@ export function tournamentsRouter(pool) {
 
         if (nm.rows.length) {
           const nextMatch = nm.rows[0]
-
           if (!nextMatch.player_a) {
-            await pool.query(
-              `UPDATE matches SET player_a=$1 WHERE id=$2`,
-              [winnerPlayerId, nextMatch.id]
-            )
+            await pool.query(`UPDATE matches SET player_a=$1 WHERE id=$2`, [winnerPlayerId, nextMatch.id])
           } else if (!nextMatch.player_b) {
-            await pool.query(
-              `UPDATE matches SET player_b=$1 WHERE id=$2`,
-              [winnerPlayerId, nextMatch.id]
-            )
+            await pool.query(`UPDATE matches SET player_b=$1 WHERE id=$2`, [winnerPlayerId, nextMatch.id])
           }
         }
       }
