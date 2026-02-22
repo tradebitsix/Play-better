@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Grid2X2, Trophy, Radio, User, ChevronRight } from 'lucide-react'
 
 import IntroOverlay from './components/IntroOverlay'
@@ -39,9 +39,18 @@ const TabButton = ({
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('lobby')
-  const [showIntro, setShowIntro] = useState(true)
+
+  // ✅ Intro shows only once (persisted)
+  const [showIntro, setShowIntro] = useState(() => localStorage.getItem('intro_seen') !== '1')
+
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null)
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Keep behavior consistent if storage changes / reloads
+    const seen = localStorage.getItem('intro_seen') === '1'
+    if (seen && showIntro) setShowIntro(false)
+  }, [showIntro])
 
   const go = (view: ViewState) => {
     // Legacy view normalization
@@ -91,10 +100,7 @@ export default function App() {
             </button>
           </div>
           {selectedTournament ? (
-            <TournamentBracket
-              tournament={selectedTournament}
-              onBack={() => go('tourneys')}
-            />
+            <TournamentBracket tournament={selectedTournament} onBack={() => go('tourneys')} />
           ) : null}
         </div>
       )
@@ -166,7 +172,20 @@ export default function App() {
         </div>
       </div>
 
-      {showIntro ? <IntroOverlay onClose={() => setShowIntro(false)} /> : null}
+      {/* ✅ Intro overlay (once), and on close -> LAND ON LOBBY */}
+      {showIntro ? (
+        <IntroOverlay
+          onClose={() => {
+            localStorage.setItem('intro_seen', '1')
+            setShowIntro(false)
+
+            // Force clean landing state
+            setCurrentView('lobby')
+            setSelectedTournament(null)
+            setSelectedMatchId(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
