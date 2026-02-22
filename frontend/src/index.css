@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif; }
+
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Lobster Aesthetic Helper */
+.lobster-text {
+  color: white;
+  text-shadow:
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000,
+     0 0 10px #ef4444,
+     0 0 20px #ef4444;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
