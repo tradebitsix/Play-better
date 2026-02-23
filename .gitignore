@@ -8,3 +8,8 @@ backend/node_modules/
 # ignore build + deps
 frontend/dist
 frontend/node_modules
+
+# build output
+frontend/dist
+frontend/node_modules
+
