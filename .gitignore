@@ -4,3 +4,7 @@ backend/node_modules/
 .env
 .env.*
 .DS_Store
+
+# ignore build + deps
+frontend/dist
+frontend/node_modules
